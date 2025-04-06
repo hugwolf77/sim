@@ -1,36 +1,46 @@
 import os
 import pandas as pd
 from pandas import DataFrame
-from sklearn.preprocessing import OneHotEncoder, StandardScaler, MinMaxScaler
-from torch.utils.data import DataLoader
+import warnings
+warnings.filterwarnings('ignore')
 
-import torch
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, MinMaxScaler
 from torch.utils.data.dataset import Dataset
 
-class MyDataset(Dataset):
-    def __init__(self, filePath, datatype:str='train', level:int=1) -> None:
+
+# 이후 DB를 사용할경우
+# def load_data_from_db(dbTB):
+#     db_con  = conn_DB()
+#     with db_con.connect() as conn:
+#         data = pd.read_sql_table(dbTB, conn)
+#         # print(data.head(3))
+#     return data
+
+
+class CIC_Dataset(Dataset):
+    def __init__(self, filePath, flag:str='train', val_size=0.1, level:int=3, scale=True) -> None:
         super().__init__()
-        self.df = self.__read_data__(datatype)
+        self.data, self.label = self.__read_data__()
         self.filePath = filePath
-        self.datatype = datatype
-        self.class_level = ['class_1', 'class_2','class_3']
-        self.label = self.df[self.class_level[level]]
-        self.data = self.df.drop(self.class_level, axis=1)
-        self.data = torch.tensor(self.data.values, dtype=torch.float32)
-        self.label = torch.tensor(self.label.values, dtype=torch.float32)
-   
-    def __read_data__(self, datatype='train') -> DataFrame:
+        self.flag = flag
+        self.val_size = val_size
+        self.class_level = f'class_{level}'
+        self.scale = scale
+        self.scaler = StandardScaler()
+        self.oneHot = OneHotEncoder(sparse_output=False)
+
+
+    def __read_data__(self):
         '''
-            - 저장된 디렉토리로 부터 데이터 파일을 읽어 드리고 
-            
-            - 각 파일의 라벨에 맞게 label column을 생성
-                : 라벨 생성 시 one-hot encoding 변환하는 것이 좋을까?
-            
-            - concatenated 하여 하나의 DataFrame으로 반환.
+            1. 저장된 디렉토리로부터 데이터 파일을 읽어 드리고 
+            2. concatenated 하여 하나의 DataFrame으로 반환.
+            3. file name을 라벨 변환 및 one-hot encoding 변환 
+            4. input data 의 scaling
+            5. label data 의 별도 파일화
         '''  
-        # dataPath = filePath - 경로로 부터 파일 리스트를 생성
-        # 경로는 이후 외부 입력 args 값으로 받게 함.
-        dataPath = '/home/augustine77/mylab/sim/sim/Pyshark/data/CIC_2025/Wifi_and_MQTT'
+        # filepath
+        # '/home/augustine77/mylab/sim/sim/Pyshark/data/CIC_2024/Wifi_and_MQTT'
+        dataPath = self.filePath
         setPath = {
                     "device type" : [ "bluetooth","Wifi_and_MQTT"],
                     "data type" : {
@@ -38,24 +48,88 @@ class MyDataset(Dataset):
                                     "test": "attacks/CSV/test/",
                                 }
                 }  
-        path = os.path.join(dataPath,setPath[datatype][type])
-        fileList = [file for file in os.listdir(path)]
-        
+        train_path = os.path.join(dataPath,setPath["data type"]["train"])
+        train_fileList = [file for file in os.listdir(train_path)]
+
+        # train data file stack & labeling  
+        df_train = self.__label_class__(train_path,train_fileList)     
+        # shuffle rows
+        df_train = df_train.sample(frac=1).reset_index(drop=True)
+       
+        # one-hot class encoding - train
+        self.oneHot.fit(df_train[[self.class_level]])
+        # df_train[self.class_level] = self.oneHot.transform(df_train[[self.class_level]])
+        df_train_label = self.oneHot.transform(df_train[[self.class_level]])
+
+        df_train = df_train.drop(self.class_level, axis=1)
+        # split validation dataset
+        split_point = int(len(df_train)*(1-self.val_size))
+        # print(f"split_point: {split_point}")
+        train_data = df_train.iloc[:split_point]
+        val_data = df_train.iloc[split_point:]
+        train_label = df_train_label[:split_point,:]
+        val_label = df_train_label[split_point:,:]
+
+        # select dataset
+        if self.flag == 'train':
+            data = train_data
+            label = train_label
+
+        elif self.flag == 'test':
+            # test data file stack & labeling
+            test_path = os.path.join(dataPath,setPath["data type"]["test"])
+            test_fileList = [file for file in os.listdir(test_path)]
+            df_test = self.__label_class__(test_path,test_fileList)
+            # one-hot class encoding - test
+            # df_test[self.class_level] = self.oneHot.transform(df_test[[self.class_level]])
+            df_test_label = self.oneHot.transform(df_test[[self.class_level]])
+            data = df_test.drop(self.class_level, axis=1)
+            label = df_test_label
+
+        elif self.flag == 'val':
+            data = val_data
+            label = val_label
+
+        else:
+            print("You must set flag argument")
+            print("Not Yet Implemented :  for Predict Dataset")
+            raise 
+            # data = pred_data
+
+        # data scaling
+        if self.scale:
+            self.scaler.fit(train_data)
+            data = self.scaler.transform(data.values)
+        else:
+            data = data.values
+
+        return data, label
+    
+    # data file stack & labeling       
+    def __label_class__(self, path, fileList):
         df = DataFrame()
         for file in fileList:
             d = pd.read_csv(os.path.join(path,file))
-            # category level에 따라서
-            # file name을 이용해서 label을 작성할 때 onehot 형태로 입력
-            tag1 = file.split('_')
-            tag2 = tag1[1].split('-')
-
-            # class category 의 level에 따라서
-            print(f"tag1 : {tag1}")
-            print(f"tag2 : {tag2} \n")
-            # d['class_1'] = tag1[0]
-            # d['class_2'] = tag2[0]
-            # d['class_3'] = tag2[1]
-            # d['class_4'] = tag2[2]
+            if self.class_level == 'class_3':
+                tag = file.replace('_train.pcap.csv','')
+                tag = tag.replace('_test.pcap.csv','')
+                if tag[-1].isdigit():
+                    tag = tag[:-1]
+                d[self.class_level] = tag
+            elif self.class_level == 'class_2':
+                # tag = file.replace('_train.pcap.csv','')
+                # tag = tag.replace('_test.pcap.csv','')
+                # if tag[-1].isdigit():
+                #     tag = tag[:-1]
+                # d[self.class_level] = tag
+                pass
+            else: # 'class_1'
+                # tag = file.replace('_train.pcap.csv','')
+                # tag = tag.replace('_test.pcap.csv','')
+                # if tag[-1].isdigit():
+                #     tag = tag[:-1]
+                # d[self.class_level] = tag
+                pass
             df = pd.concat([df,d],axis=0)
         return df
 
@@ -66,11 +140,33 @@ class MyDataset(Dataset):
         data, label = self.data[index], self.label[index]
         return data, label
 
-    def __inverse_transform__(self):
+    def __inverse_transform__(self, data):
+        return self.scaler.inverse_transform(data)
+    
+
+# not yet
+class CIC_Predict_Dataset(Dataset):
+    def __init__(self, filePath, level:int=3, scale=True) -> None:
+        super().__init__()
+        self.data = self.__read_data__()
+        self.filePath = filePath
+        
+    def __read_data__(self) -> DataFrame:
         pass
+    
+    def __len__(self):
+        return len(self.data)
 
+    def __getitem__(self,index):
+        data, label = self.data[index], self.label[index]
+        return data, label
 
+    def __inverse_transform__(self, data):
+        return self.scaler.inverse_transform(data)
+    
 
+if __name__ == '__main__':
+    pass
 
         
     

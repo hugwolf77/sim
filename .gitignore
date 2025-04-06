@@ -1,4 +1,13 @@
 
+
 /DLnote
 /MLnote
 /Orange
+
+DLnote/*
+MLnote/*
+Orange/*
+
+testFile/
+
+*.ipynb
