@@ -4,9 +4,11 @@
 /MLnote
 /Orange
 
-DLnote/*
-MLnote/*
-Orange/*
+__pycache__/
+
+DLnote/
+MLnote/
+Orange/
 
 testFile/
 

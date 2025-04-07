@@ -10,6 +10,7 @@ def data_provider(flag):
     filePath = data_setting["filePath"]
     level = data_setting["levle"]
     scale = data_setting["scale"]
+    val_size = data_setting["val_size"]
     # set train with dataset
     batch_size = data_load_setting["batch_size"]
     num_workers = data_load_setting["num_workers"]
@@ -19,7 +20,7 @@ def data_provider(flag):
     if flag == 'test':
         shuffle_flag = False
         batch_size = batch_size
-        Data = CIC_Dataset(filePath,flag,level,scale)
+        Data = CIC_Dataset(filePath,flag,val_size,level,scale)
     elif flag == 'pred':
         shuffle_flag = False
         batch_size = 1
@@ -27,7 +28,7 @@ def data_provider(flag):
     else:
         shuffle_flag = shuffle_flag
         batch_size = batch_size
-        Data = CIC_Dataset(filePath,flag,level,scale)
+        Data = CIC_Dataset(filePath,flag,val_size,level,scale)
 
     print(f"data_provider : Calling dataset - {flag},  Dataset size - {len(Data)}")
     data_loader = DataLoader(

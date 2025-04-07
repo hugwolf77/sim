@@ -18,9 +18,8 @@ from torch.utils.data.dataset import Dataset
 
 
 class CIC_Dataset(Dataset):
-    def __init__(self, filePath, flag:str='train', val_size=0.1, level:int=3, scale=True) -> None:
+    def __init__(self, filePath, flag:str='train', val_size=0.1, level:int=3, scale=True):
         super().__init__()
-        self.data, self.label = self.__read_data__()
         self.filePath = filePath
         self.flag = flag
         self.val_size = val_size
@@ -28,6 +27,9 @@ class CIC_Dataset(Dataset):
         self.scale = scale
         self.scaler = StandardScaler()
         self.oneHot = OneHotEncoder(sparse_output=False)
+        self.data, self.label = self.__read_data__()
+        print(f"self.data.shape: {self.data.shape}")
+        print(f"self.label.shape: {self.label.shape}")
 
 
     def __read_data__(self):
@@ -39,7 +41,6 @@ class CIC_Dataset(Dataset):
             5. label data 의 별도 파일화
         '''  
         # filepath
-        # '/home/augustine77/mylab/sim/sim/Pyshark/data/CIC_2024/Wifi_and_MQTT'
         dataPath = self.filePath
         setPath = {
                     "device type" : [ "bluetooth","Wifi_and_MQTT"],
@@ -108,7 +109,8 @@ class CIC_Dataset(Dataset):
     # data file stack & labeling       
     def __label_class__(self, path, fileList):
         df = DataFrame()
-        for file in fileList:
+        for i, file in enumerate(fileList):
+            print(f"Now Loading........{file}...Total_file..({len(fileList)})....left..( {len(fileList)-i-1})")
             d = pd.read_csv(os.path.join(path,file))
             if self.class_level == 'class_3':
                 tag = file.replace('_train.pcap.csv','')
