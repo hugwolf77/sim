@@ -6,7 +6,6 @@ warnings.filterwarnings('ignore')
 # import logging
 # logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-
 from sklearn.preprocessing import OneHotEncoder, StandardScaler, MinMaxScaler
 from torch.utils.data.dataset import Dataset
 
@@ -20,10 +19,8 @@ from torch.utils.data.dataset import Dataset
 #     return data
 
 
-class CIC_Dataset(Dataset):
-    def __init__(self, filePath, flag:str='train', val_size=0.1, level:int=1, scale=True):
-        super().__init__()
-        self.flag = flag
+class Read_DataList:
+    def __init__(self, filePath, val_size=0.1, level:int=1, scale=True, add_test=True):
         self.val_size = val_size
         self.class_level = f'class_{level}'
         # filepath
@@ -34,24 +31,26 @@ class CIC_Dataset(Dataset):
                                     "train": "attacks/CSV/train/",
                                     "test": "attacks/CSV/test/",
                                 }
-                }  
-        self.scale = scale
+                }
         self.scaler = StandardScaler()
         self.oneHot = OneHotEncoder(sparse_output=False)
-
-        self.data, self.label = self.__read_data__()
-        print(f"\nInitialized CIC_Dataset for '{self.flag}'. Data shape: {self.data.shape}, Label shape: {self.label.shape}")
-        # logging.info(f"Initialized CIC_Dataset for '{self.flag}'. Data shape: {self.data.shape}, Label shape: {self.label.shape}")
-
-
+        self.scale = scale
+        self.add_test = add_test
+        print(f"\n - [ Start Read Data-List And Load Data-files ] - \n")
+        if self.add_test :
+            self.train_data, self.train_label, self.val_Data, self.val_label, self.test_data, self.test_label = self.__read_data__()
+            print(f"\nInitialized CIC_Dataset (with test) for :\n \
+                  \t train data : {self.train_data.shape}, train label : {self.train_label.shape}\n \
+                  \t val data : {self.val_Data.shape}, val label : {self.val_label.shape}\n \
+                  \t test data : {self.test_data.shape}, test label : {self.test_label.shape}")
+        else:
+            self.train_data, self.train_label, self.val_Data, self.val_label = self.__read_data__()
+            print(f"\nInitialized CIC_Dataset for :\n \
+                  \t train data : {self.train_data.shape}, train label : {self.train_label.shape}\n \
+                  \t val data : {self.val_Data.shape}, val label : {self.val_label.shape}")
+        
     def __read_data__(self):
-        '''
-            1. 지정된 데이터 저장 디렉토리로부터 데이터 파일들을 읽는다.
-            2. 각 해당 file name을 라벨 변환 및 one-hot encoding 변환 한다 (level에 맞춰 label 생성).
-            3. 읽어 들인 각 파일의 df를 concatenated 하여 하나의 DataFrame으로 반환 한다.
-            4. input data를 standardization scaling 하는 obtion을 넣는다.
-            5. label data 별도 출력값으로 만든다.
-        '''  
+
         train_path = os.path.join(self.filePath, self.setPath["data type"]["train"])
         train_fileList = [file for file in os.listdir(train_path)]
 
@@ -77,40 +76,35 @@ class CIC_Dataset(Dataset):
         val_label = df_train_label[split_point:,:]
         print((f"\nSplitting training data at index {split_point} for validation."))
 
-        # select dataset
-        if self.flag == 'train':
-            data = train_data
-            label = train_label
-
-        elif self.flag == 'test':
+        if self.add_test:
             # test data file stack & labeling
             test_path = os.path.join(self.filePath, self.setPath["data type"]["test"])
             test_fileList = [file for file in os.listdir(test_path)]
             df_test = self.__label_class__(test_path,test_fileList)
             # one-hot class encoding - test
             df_test_label = self.oneHot.transform(df_test[[self.class_level]])
-            data = df_test.drop(self.class_level, axis=1)
-            label = df_test_label
+            test_data = df_test.drop(self.class_level, axis=1)
+            test_label = df_test_label
 
-        elif self.flag == 'val':
-            data = val_data
-            label = val_label
 
-        else:
-            print("You must set flag argument")
-            print("Not Yet Implemented :  for Predict Dataset")
-            raise 
-            # data = pred_data
+            # data scaling
+            if self.scale:
+                self.scaler.fit(train_data)
+                train_data = self.scaler.transform(train_data.values)
+                val_data = self.scaler.transform(val_data.values)
+                test_data = self.scaler.transform(test_data.values)
 
-        # data scaling
-        if self.scale:
-            self.scaler.fit(train_data)
-            data = self.scaler.transform(data.values)
-        else:
-            data = data.values
+            return train_data, train_label, val_data, val_label, test_data, test_label
+        
+        else: 
+            # data scaling
+            if self.scale:
+                self.scaler.fit(train_data)
+                train_data = self.scaler.transform(train_data.values)
+                val_data = self.scaler.transform(val_data.values)
+                
+            return train_data, train_label, val_data, val_label
 
-        return data, label
-    
     # data file stack & labeling       
     def __label_class__(self, path, fileList):
         df = DataFrame()
@@ -150,6 +144,19 @@ class CIC_Dataset(Dataset):
             df = pd.concat([df,d],axis=0)
         return df
 
+    def get_train_data(self):
+            return self.train_data, self.train_label
+    def get_val_data(self):
+            return self.val_Data, self.val_label
+    def get_test_data(self):
+            return self.test_data, self.test_label
+
+
+class CIC_Dataset(Dataset):
+    def __init__(self, datazip:tuple) -> None:
+        super().__init__()
+        self.data, self.label = datazip
+
     def __len__(self):
         return len(self.data)
 
@@ -184,6 +191,7 @@ class CIC_Predict_Dataset(Dataset):
     def __getitem__(self,index):
         data = self.data[index]
         return data
+
     
 
 if __name__ == '__main__':
