@@ -13,4 +13,6 @@ SHAP/
 
 testFile/
 
+save_model/
+
 *.ipynb

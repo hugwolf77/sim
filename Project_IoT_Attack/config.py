@@ -2,7 +2,7 @@
 
 data_setting = {
     # data file path
-    "filePath" : "/home/augustine77/mylab/sim/sim/Project_IoT_Attack/data/CIC_2024/Wifi_and_MQTT",
+    "filePath" : '/home/augustine77/mylab/sim/sim/Project_IoT_Attack/data/CIC_2024/Wifi_and_MQTT',
 
     # set dataset level
     "level"    : 1,
@@ -21,18 +21,21 @@ train_setting = {
     "model_load": False,
     "model_path": "",
 
-    "epochs" : 10,
-    'dropout_ratio' : 0.5,
-    'learning_rate' : 0.5,
-    'weight_decay'  : 0.3,
-    
-    'early_stopping' : True,
-    'patience' : 5,
+    "epochs" : 30,
+    "dropout_ratio" : 0.3,
+    "learning_rate" : 0.3,
+    "weight_decay"  : 0.2,
+    "early_stopping" : True,
+    "patience" : 7,
 
     # save
-    'save' : True,
-    'save_path' : './save_model',
-    'matric_path': ''
+    "save" : True,
+    "save_path" : '/home/augustine77/mylab/sim/sim/Project_IoT_Attack/save_model',
+    "matrix_path": '',
+
+    # load
+    "load_model" : False,
+    # "load_path" : '',
 }
 
 predict_setting = {

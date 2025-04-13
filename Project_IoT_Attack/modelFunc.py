@@ -24,13 +24,14 @@ class EarlyStopping:
         self.val_loss_min = np.Inf
         self.delta = delta
         self.save = save
+                
 
-    def __call__(self, val_loss, model, path, save_name):
+    def __call__(self, val_loss, model, path, save_name, epoch, optimizer, loss):
         score = -val_loss
         if self.best_score is None:
             self.best_score = score
             if self.save:
-                self.save_checkpoint(val_loss, model, path, save_name)
+                self.save_checkpoint(val_loss, model, path, save_name, epoch, optimizer, loss)
         elif score < self.best_score + self.delta:
             self.counter += 1
             print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
@@ -39,34 +40,31 @@ class EarlyStopping:
         else:
             self.best_score = score
             if self.save:
-                self.save_checkpoint(val_loss, model, path, save_name)
+                self.save_checkpoint(val_loss, model, path, save_name, epoch, optimizer, loss)
             self.counter = 0
 
-    def save_checkpoint(self, val_loss, model, path, save_name):
+    def save_checkpoint(self, val_loss, model, path, save_name, epoch, optimizer, train_loss):
         if self.verbose:
             print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
-        torch.save(model.state_dict(), path + '/' + f'{save_name}.pth')
-
-        '''
-        {
-            'epoch': epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'loss': loss,
-            ...
-            }
-        '''
+        torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'loss': train_loss,
+                    }, path + '/' + f'{save_name}.pth')
+        
 
         self.val_loss_min = val_loss
 
 
 class ModelFunction:
-    def __init__(self,  model_select, level=1, save=False, savePath=None):
+    def __init__(self,  model_select, level=1, save=False, savePath=None, load_model = True):
         self.level = level
         self.model_select = model_select
         self.device = self.set_device()
         self.save = save
         self.savePath = savePath
+        self.load_model = load_model
         
     def _build_model(self, dropout_ratio=0.5):
         model_dict = {
@@ -79,30 +77,35 @@ class ModelFunction:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print('Use Device:', device)
         return device
+    
+    def find_latest_save_checkpoint(self, save_path):
+        # 해당 디렉토리 내의 모든 파일 목록 가져오기
+        save_files = os.listdir(save_path)
+
+        if not save_files:
+            print("No files found in the directory.")
+            return None
+        file_times = [(file, os.path.getmtime(file)) for file in save_files]
+        sorted_files = sorted(file_times, key=lambda item: item[1], reverse=True)
+        return sorted_files[0][0]
 
     def train(self, epochs=100, learning_lr=0.5, dropout_ratio=0.5, weight_decay=0.3, batch_size=300, patience=5):
 
-        '''
-         - model load for vail
-            checkpoint = torch.load(PATH, weights_only=True)
-            model.load_state_dict(checkpoint['model_state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            epoch = checkpoint['epoch']
-            loss = checkpoint['loss']
-        '''
-
         self.model = self._build_model(dropout_ratio).to(self.device)
+
+
         self.model_name = self.model_select + f"_level_{self.level}_lr({learning_lr})_dropout({dropout_ratio})_wdecay({weight_decay})_batch({batch_size})"
         print("\n {:{}^50}".format(self.model_name,'='))
         summary(self.model, (45,), batch_size)
 
         train_data, train_loader =  data_provider(flag='train', batch_size=batch_size)
+        val_data, val_loader =  data_provider(flag='val', batch_size=batch_size)
         
         # set save path locate at project subpath
-        # if self.save:
-        path = os.path.join(self.savePath, self.model_select, datetime.now().strftime('%Y-%m-%d'))
-        if not os.path.exists(path):
-            os.makedirs(path)
+        if self.save:
+            path = os.path.join(self.savePath, self.model_select, datetime.now().strftime('%Y-%m-%d'))
+            if not os.path.exists(path):
+                os.makedirs(path)
 
         time_now = time.time()
         train_steps = len(train_loader)
@@ -126,6 +129,14 @@ class ModelFunction:
                                                 last_epoch=-1, 
                                                 verbose=False
                                             ) 
+        # load model
+        if self.load_model:
+            find_latest_ckp = self.find_latest_save_checkpoint(path)
+            checkpoint = torch.load(self.savePath + '/' + find_latest_ckp, weights_only=True)
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            model_optim.load_state_dict(checkpoint['optimizer_state_dict'])
+            epoch = checkpoint['epoch']
+            loss = checkpoint['loss']
 
         for epoch in range(epochs):
             print("{:{}^50} ".format( 'Epoch_('+str(epoch+1)+')_Start', '-'))
@@ -166,28 +177,19 @@ class ModelFunction:
 
             scheduler.step()
 
-            val_loss = self.vali(batch_size)
+            val_loss = self.vali(val_loader)
             now = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
             save_name = self.model_name + str(now)
-            early_stopping(val_loss, self.model, path, save_name)
+            early_stopping(val_loss, self.model, path, save_name, epoch, model_optim, train_loss)
             if early_stopping.early_stop:
                 print("\n{:^50}\n".format("Early Stopping"))
                 print(f"Model - {self.model_select} - Trainning Stop in Epoch : {epoch + 1} at {now}")
                 break
 
 
-    def vali(self, batch_size):        
+    def vali(self, val_loader):        
         # data loader locate
-        val_data, val_loader =  data_provider(flag='val', batch_size=batch_size)
-
-        '''
-         - model load for vail
-            checkpoint = torch.load(PATH, weights_only=True)
-            model.load_state_dict(checkpoint['model_state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            epoch = checkpoint['epoch']
-            loss = checkpoint['loss']
-        '''
+        # val_data, val_loader =  data_provider(flag='val', batch_size=batch_size)
 
         self.model.eval()
         criterion = nn.CrossEntropyLoss()
