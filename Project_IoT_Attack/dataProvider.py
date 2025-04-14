@@ -1,7 +1,7 @@
 
 from torch.utils.data.dataset import Dataset
 # from dataFactory import CIC_Dataset, CIC_Predict_Dataset
-from dataFactory_v2 import Read_DataList, CIC_Dataset, CIC_Predict_Dataset 
+from dataFactory_v2 import Read_DataList, CIC_Dataset, CIC_Infer_Dataset, CIC_Predict_Dataset 
 from torch.utils.data import DataLoader
 from config import data_setting, predict_setting
 
@@ -61,7 +61,7 @@ def data_provider(flag, batch_size, add_test=True):
     if flag == 'test':
         shuffle_flag = False
         batch_size = batch_size
-        Data = CIC_Dataset(dataload.get_test_data)
+        Data = CIC_Infer_Dataset(dataload.get_test_data())
     elif flag == 'pred':
         shuffle_flag = False
         batch_size = 1
@@ -78,7 +78,12 @@ def data_provider(flag, batch_size, add_test=True):
         shuffle=shuffle_flag,
         num_workers=num_workers,
         drop_last=drop_last)
+    
+    if (flag == 'train' or flag == 'val'):
+        return Data, data_loader, dataload.get_scaler(), dataload.get_oneHot()
+
     return Data, data_loader
+
 
 
 if __name__ == '__main__':

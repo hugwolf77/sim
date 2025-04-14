@@ -36,10 +36,10 @@ class test_model(nn.Module):
         self.relu_5 = nn.ReLU()
         
         self.linear_6 = nn.Linear(45, 30, bias=True)
-        self.relu_6 = nn.ReLU()
+        self.sigmoid_6 = nn.Sigmoid()
         
         self.linear_7 = nn.Linear(30, self.class_level_label[self.class_level], bias=True)
-        self.softmax = nn.Softmax(dim=1)
+        # self.softmax = nn.Softmax(dim=1)
 
         for m in self.modules():
             if isinstance(m, nn.Linear):
@@ -70,7 +70,7 @@ class test_model(nn.Module):
         x_6 = self.relu_5(x_6)
 
         x_7 = self.linear_6(x_6)
-        x_7 = self.relu_6(x_7)
+        x_7 = self.sigmoid_6(x_7)
 
         out = self.linear_7(x_7)
         # out = self.softmax(x_8)

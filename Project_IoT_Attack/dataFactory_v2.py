@@ -145,14 +145,30 @@ class Read_DataList:
         return df
 
     def get_train_data(self):
-            return self.train_data, self.train_label
+        return self.train_data, self.train_label
     def get_val_data(self):
-            return self.val_Data, self.val_label
+        return self.val_Data, self.val_label
     def get_test_data(self):
-            return self.test_data, self.test_label
-
+        return self.test_data, self.test_label
+    def get_scaler(self):
+        return self.scaler
+    def get_oneHot(self):
+        return self.oneHot
+        
 
 class CIC_Dataset(Dataset):
+    def __init__(self, datazip:tuple) -> None:
+        super().__init__()
+        self.data, self.label = datazip
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self,index):
+        data, label = self.data[index], self.label[index]
+        return data, label
+
+class CIC_Infer_Dataset(Dataset):
     def __init__(self, datazip:tuple) -> None:
         super().__init__()
         self.data, self.label = datazip

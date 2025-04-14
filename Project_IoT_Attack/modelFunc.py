@@ -98,8 +98,8 @@ class ModelFunction:
         print("\n {:{}^50}".format(self.model_name,'='))
         summary(self.model, (45,), batch_size)
 
-        train_data, train_loader =  data_provider(flag='train', batch_size=batch_size)
-        val_data, val_loader =  data_provider(flag='val', batch_size=batch_size)
+        train_data, train_loader, scaler, oneHot =  data_provider(flag='train', batch_size=batch_size)
+        val_data, val_loader, _, _ =  data_provider(flag='val', batch_size=batch_size)
         
         # set save path locate at project subpath
         if self.save:
@@ -137,6 +137,7 @@ class ModelFunction:
             model_optim.load_state_dict(checkpoint['optimizer_state_dict'])
             epoch = checkpoint['epoch']
             loss = checkpoint['loss']
+            print(f"model's lastest_checkpoint is on the model")
 
         for epoch in range(epochs):
             print("{:{}^50} ".format( 'Epoch_('+str(epoch+1)+')_Start', '-'))
@@ -185,6 +186,8 @@ class ModelFunction:
                 print("\n{:^50}\n".format("Early Stopping"))
                 print(f"Model - {self.model_select} - Trainning Stop in Epoch : {epoch + 1} at {now}")
                 break
+        return scaler, oneHot # metrices
+        
 
 
     def vali(self, val_loader):        
@@ -205,36 +208,60 @@ class ModelFunction:
                 val_loss.append(loss.item())
         val_loss = np.average(val_loss)
         print("Validation Loss: {0:.7f} \n".format(val_loss))
-        return val_loss
+        return val_loss #, metrices
 
-    def test(self, batch_size):
+    def test(self, learning_lr=0.5, dropout_ratio=0.5, weight_decay=0.3, batch_size=300, load_path=None):
+
+        self.model = self._build_model(dropout_ratio).to(self.device)
         test_data, test_loader =  data_provider(flag='test', batch_size=batch_size)
-
-        '''
-         - model load for vail
-            checkpoint = torch.load(PATH, weights_only=True)
-            model.load_state_dict(checkpoint['model_state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            epoch = checkpoint['epoch']
-            loss = checkpoint['loss']
-        '''
+        path = load_path
 
         self.model.eval()
+        model_optim = optim.Adam(
+                        self.model.parameters(), 
+                        lr=learning_lr, 
+                        weight_decay=weight_decay
+                        )
+
+        # load model
+        if self.load_model:
+            find_latest_ckp = self.find_latest_save_checkpoint(path)
+            checkpoint = torch.load(self.savePath + '/' + find_latest_ckp, weights_only=True)
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            model_optim.load_state_dict(checkpoint['optimizer_state_dict'])
+            epoch = checkpoint['epoch']
+            loss = checkpoint['loss']
+            print(f"model's lastest_checkpoint is on the model")
+
+        
         criterion = nn.CrossEntropyLoss()
         test_loss = []
+        test_predict = []
+        
         with torch.no_grad():
             for i, (batch_x, batch_y) in enumerate(test_loader):
                 batch_x = batch_x.float().to(self.device)
-                batch_y = batch_y.float().to(self.device).to(torch.long)
+                batch_y = batch_y.float().to(self.device)
                 outputs = self.model(batch_x)
                 loss = criterion(outputs, batch_y)
                 test_loss.append(loss.item())
+                # print(f"batch_y.shape : {batch_y.shape} ")
+                # print(f"batch_y : {batch_y}")
+                # print(f"outputs.shape : {outputs.shape}")
+                # print(f"outputs : {outputs}")
+                test_predict.append(outputs)
+                # print(f"test_predict.length : {len(test_predict)}")
+                # print(f"test_predict : {test_predict}")
         test_loss = np.average(test_loss)
-        test_predict = torch.max(outputs, 1)[1]
+        # test_predict = torch.max(outputs, 1)[1]
+        test_predict = torch.cat(test_predict, dim=0)
+        print(f'test_predict :{test_predict.shape}')
         print("Test Loss: {0:.7f} \n".format(test_loss))
 
+        test_input, test_label = test_loader.dataset.data, test_loader.dataset.label
+
         # Evaluation Model & Check accuracy matrix
-        return test_predict, test_loss
+        return test_predict, test_label, test_loss
         
 
     def predict(self, batch_size):

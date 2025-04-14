@@ -21,9 +21,9 @@ train_setting = {
     "model_load": False,
     "model_path": "",
 
-    "epochs" : 30,
+    "epochs" : 1,
     "dropout_ratio" : 0.3,
-    "learning_rate" : 0.3,
+    "learning_rate" : 0.2,
     "weight_decay"  : 0.2,
     "early_stopping" : True,
     "patience" : 7,
@@ -34,8 +34,8 @@ train_setting = {
     "matrix_path": '',
 
     # load
-    "load_model" : False,
-    # "load_path" : '',
+    "load_model" : True,
+    "load_path" : '/home/augustine77/mylab/sim/sim/Project_IoT_Attack/save_model/2025-04-13',
 }
 
 predict_setting = {
