@@ -1,3 +1,8 @@
+import dataclasses
+
+
+class args:
+    pass
 
 
 data_setting = {

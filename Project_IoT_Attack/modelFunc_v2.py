@@ -10,9 +10,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
 from model.models import test_model
-from dataProvider import data_provider
+# from dataProvider import data_provider
+from dataprovider_v2 import DataProvider
 from torchsummary import summary
-
+ 
 
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, delta=0, save=False):
@@ -51,7 +52,8 @@ class EarlyStopping:
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'loss': train_loss,
-                    }, path + '/' + f'{save_name}.pth')
+                    }, os.path.join(path, f'{save_name}.pth'))
+        # torch.save(model.state_dict(), path + '\\' + f'{save_name}.pth')
         
 
         self.val_loss_min = val_loss
@@ -65,6 +67,7 @@ class ModelFunction:
         self.save = save
         self.savePath = savePath
         self.load_model = load_model
+        self.DataProvider = DataProvider()
         
     def _build_model(self, dropout_ratio=0.5):
         model_dict = {
@@ -98,8 +101,13 @@ class ModelFunction:
         print("\n {:{}^50}".format(self.model_name,'='))
         summary(self.model, (45,), batch_size)
 
-        train_data, train_loader, scaler, oneHot =  data_provider(flag='train', batch_size=batch_size)
-        val_data, val_loader, _, _ =  data_provider(flag='val', batch_size=batch_size)
+        train_data, train_loader = self.DataProvider.getTrainLoader()
+        scaler = self.DataProvider.getScaler()
+        oneHot = self.DataProvider.getOneHot()
+        val_data, val_loader = self.DataProvider.getValLoader()
+
+        # train_data, train_loader, scaler, oneHot =  data_provider(flag='train', batch_size=batch_size)
+        # val_data, val_loader, _, _ =  data_provider(flag='val', batch_size=batch_size)
         
         # set save path locate at project subpath
         if self.save:
@@ -116,6 +124,7 @@ class ModelFunction:
                                 weight_decay=weight_decay
                                 )
         criterion = nn.CrossEntropyLoss()
+        # criterion = nn.NLLLoss()
         early_stopping = EarlyStopping(
                                        patience=patience, 
                                        verbose=True, 
@@ -132,7 +141,8 @@ class ModelFunction:
         # load model
         if self.load_model:
             find_latest_ckp = self.find_latest_save_checkpoint(path)
-            checkpoint = torch.load(self.savePath + '/' + find_latest_ckp, weights_only=True)
+            checkpoint = torch.load(os.path.join(path, find_latest_ckp), weights_only=True)
+            # checkpoint = torch.load(self.savePath + '/' + find_latest_ckp, weights_only=True)
             self.model.load_state_dict(checkpoint['model_state_dict'])
             model_optim.load_state_dict(checkpoint['optimizer_state_dict'])
             epoch = checkpoint['epoch']
@@ -179,7 +189,7 @@ class ModelFunction:
             scheduler.step()
 
             val_loss = self.vali(val_loader)
-            now = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+            now = datetime.now().strftime('%Y-%m-%d') #_%H:%M:%S')
             save_name = self.model_name + str(now)
             early_stopping(val_loss, self.model, path, save_name, epoch, model_optim, train_loss)
             if early_stopping.early_stop:
@@ -212,7 +222,8 @@ class ModelFunction:
     def test(self, learning_lr=0.5, dropout_ratio=0.5, weight_decay=0.3, batch_size=300, load_path=None):
 
         self.model = self._build_model(dropout_ratio).to(self.device)
-        test_data, test_loader =  data_provider(flag='test', batch_size=batch_size)
+        test_data, test_loader =  self.DataProvider.getTestLoader()
+        # test_data, test_loader =  data_provider(flag='test', batch_size=batch_size)
         path = load_path
 
         self.model.eval()
@@ -225,7 +236,7 @@ class ModelFunction:
         # load model
         if self.load_model:
             find_latest_ckp = self.find_latest_save_checkpoint(path)
-            checkpoint = torch.load(self.savePath + '/' + find_latest_ckp, weights_only=True)
+            checkpoint = torch.load(os.path.join(self.savePath,find_latest_ckp), weights_only=True)
             self.model.load_state_dict(checkpoint['model_state_dict'])
             model_optim.load_state_dict(checkpoint['optimizer_state_dict'])
             epoch = checkpoint['epoch']
@@ -257,14 +268,15 @@ class ModelFunction:
         print(f'test_predict :{test_predict.shape}')
         print("Test Loss: {0:.7f} \n".format(test_loss))
 
-        test_input, test_label = test_loader.dataset.data, test_loader.dataset.label
+        # test_input, test_label = test_loader.dataset.data, test_loader.dataset.label
 
         # Evaluation Model & Check accuracy matrix
-        return test_predict, test_label, test_loss
+        # return test_predict, test_label, test_loss
         
 
     def predict(self, batch_size):
-        pred_data, pred_loader =  data_provider(flag='pred', batch_size=batch_size)
+        pred_Data, pred_loader = self.DataProvider.getPredLoader()
+        # pred_data, pred_loader =  data_provider(flag='pred', batch_size=batch_size)
         self.model.eval()
         with torch.no_grad():
             pred = torch.tensor([])

@@ -3,9 +3,12 @@ import torch.nn.functional as F
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.preprocessing import OneHotEncoder
 
-from modelFunc import ModelFunction
+# from modelFunc import ModelFunction
+from modelFunc_v2 import ModelFunction
+import torch
 from config import train_setting, data_setting
 
+# from dataprovider_v2 import DataProvider
 
 process  = ModelFunction(train_setting["model"], save=train_setting['save'], level= data_setting['level'], savePath=train_setting['save_path'], load_model=train_setting['model_load'])
 scaler, oneHot = process.train(
@@ -45,8 +48,12 @@ test_predict_result_list = []
 for predict in test_predict_result:
     test_predict_result_list.append(list(predict).index(1))
 
-
-
 # error
 print(confusion_matrix(test_label_result, test_predict_result_list))
 print(classification_report(test_label_result, test_predict_result_list))
+
+
+   
+# dataloader = DataProvider()
+# print(f"dataloader - trainData : {type(dataloader.trainData)}")
+# print(f"dataloader - trainLoader : {type(dataloader.trainLoader)}")
