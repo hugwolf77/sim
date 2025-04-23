@@ -12,7 +12,7 @@ Orange/
 SHAP/
 
 testFile/
-
+log_dir/
 save_model/
 
 *.ipynb

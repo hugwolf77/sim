@@ -11,27 +11,27 @@ data_setting = {
 
     # set dataset level
     "level"    : 1,
-    "batch_size" : 500,
+    "batch_size" : 150,
     
     "scale"    : True,
     "val_size" : 0.2,
     "num_workers" : 3,
     "drop_last" : False,
-    "shuffle_flag" : False,
+    "shuffle_flag" : True,
 }
 
 train_setting = {
     "model" : "test_model",
 
-    "model_load": False,
+    "model_load": True,
     "model_path": "",
 
-    "epochs" : 1,
+    "epochs" : 20,
     "dropout_ratio" : 0.3,
-    "learning_rate" : 0.2,
+    "learning_rate" : 0.1,
     "weight_decay"  : 0.2,
     "early_stopping" : True,
-    "patience" : 7,
+    "patience" : 10,
 
     # save
     "save" : True,
@@ -40,7 +40,7 @@ train_setting = {
 
     # load
     "load_model" : True,
-    "load_path" : '/home/augustine77/mylab/sim/sim/Project_IoT_Attack/save_model/2025-04-13',
+    "load_path" : '/home/augustine77/mylab/sim/sim/Project_IoT_Attack/save_model/test_model/2025-04-23',
 }
 
 predict_setting = {

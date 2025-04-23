@@ -9,11 +9,18 @@ import torch.nn as nn
 # from torch.nn.functional import cross_entropy, nll_loss
 import torch.nn.functional as F
 from torch import optim
+
+
 from model.models import test_model
 # from dataProvider import data_provider
 from dataprovider_v2 import DataProvider
+
 from torchsummary import summary
- 
+
+# train-log
+from torch.utils.tensorboard import SummaryWriter
+
+
 
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, delta=0, save=False):
@@ -68,6 +75,8 @@ class ModelFunction:
         self.savePath = savePath
         self.load_model = load_model
         self.DataProvider = DataProvider()
+        log_dir = './log_dir' # 임시
+        self.writer = SummaryWriter(log_dir=log_dir) 
         
     def _build_model(self, dropout_ratio=0.5):
         model_dict = {
@@ -82,13 +91,11 @@ class ModelFunction:
         return device
     
     def find_latest_save_checkpoint(self, save_path):
-        # 해당 디렉토리 내의 모든 파일 목록 가져오기
         save_files = os.listdir(save_path)
-
         if not save_files:
             print("No files found in the directory.")
             return None
-        file_times = [(file, os.path.getmtime(file)) for file in save_files]
+        file_times = [(file, os.path.getmtime(os.path.join(save_path, file))) for file in save_files]
         sorted_files = sorted(file_times, key=lambda item: item[1], reverse=True)
         return sorted_files[0][0]
 
@@ -106,8 +113,7 @@ class ModelFunction:
         oneHot = self.DataProvider.getOneHot()
         val_data, val_loader = self.DataProvider.getValLoader()
 
-        # train_data, train_loader, scaler, oneHot =  data_provider(flag='train', batch_size=batch_size)
-        # val_data, val_loader, _, _ =  data_provider(flag='val', batch_size=batch_size)
+        # self.writer.add_graph(self.model, train_data.data)
         
         # set save path locate at project subpath
         if self.save:
@@ -141,7 +147,7 @@ class ModelFunction:
         # load model
         if self.load_model:
             find_latest_ckp = self.find_latest_save_checkpoint(path)
-            checkpoint = torch.load(os.path.join(path, find_latest_ckp), weights_only=True)
+            checkpoint = torch.load(os.path.join(path, find_latest_ckp), weights_only=False)
             # checkpoint = torch.load(self.savePath + '/' + find_latest_ckp, weights_only=True)
             self.model.load_state_dict(checkpoint['model_state_dict'])
             model_optim.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -184,23 +190,27 @@ class ModelFunction:
 
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
             train_loss = np.average(train_loss)
+            self.writer.add_scalar('Loss/train', train_loss, epoch)
             print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} \n".format(epoch + 1, train_steps, train_loss))
 
             scheduler.step()
 
-            val_loss = self.vali(val_loader)
+            val_loss = self.vali(val_loader, epoch=epoch)
             now = datetime.now().strftime('%Y-%m-%d') #_%H:%M:%S')
-            save_name = self.model_name + str(now)
-            early_stopping(val_loss, self.model, path, save_name, epoch, model_optim, train_loss)
+            self.save_name = self.model_name + str(now)
+            early_stopping(val_loss, self.model, path, self.save_name, epoch, model_optim, train_loss)
             if early_stopping.early_stop:
                 print("\n{:^50}\n".format("Early Stopping"))
                 print(f"Model - {self.model_select} - Trainning Stop in Epoch : {epoch + 1} at {now}")
                 break
+
+            # self.writer.flush()
+        # self.writer.close()
         return scaler, oneHot # metrices
         
 
 
-    def vali(self, val_loader):        
+    def vali(self, val_loader, epoch):        
         # data loader locate
         # val_data, val_loader =  data_provider(flag='val', batch_size=batch_size)
 
@@ -217,13 +227,13 @@ class ModelFunction:
                 val_loss.append(loss.item())
         val_loss = np.average(val_loss)
         print("Validation Loss: {0:.7f} \n".format(val_loss))
+        self.writer.add_scalar('Loss/val', val_loss, epoch)
         return val_loss #, metrices
 
     def test(self, learning_lr=0.5, dropout_ratio=0.5, weight_decay=0.3, batch_size=300, load_path=None):
 
         self.model = self._build_model(dropout_ratio).to(self.device)
         test_data, test_loader =  self.DataProvider.getTestLoader()
-        # test_data, test_loader =  data_provider(flag='test', batch_size=batch_size)
         path = load_path
 
         self.model.eval()
@@ -236,7 +246,7 @@ class ModelFunction:
         # load model
         if self.load_model:
             find_latest_ckp = self.find_latest_save_checkpoint(path)
-            checkpoint = torch.load(os.path.join(self.savePath,find_latest_ckp), weights_only=True)
+            checkpoint = torch.load(os.path.join(path,find_latest_ckp), weights_only=False)
             self.model.load_state_dict(checkpoint['model_state_dict'])
             model_optim.load_state_dict(checkpoint['optimizer_state_dict'])
             epoch = checkpoint['epoch']
@@ -268,10 +278,10 @@ class ModelFunction:
         print(f'test_predict :{test_predict.shape}')
         print("Test Loss: {0:.7f} \n".format(test_loss))
 
-        # test_input, test_label = test_loader.dataset.data, test_loader.dataset.label
+        test_input, test_label = test_loader.dataset.data, test_loader.dataset.label
 
         # Evaluation Model & Check accuracy matrix
-        # return test_predict, test_label, test_loss
+        return test_predict, test_label, test_loss
         
 
     def predict(self, batch_size):
