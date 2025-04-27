@@ -23,6 +23,8 @@
 
 - 2025.04.13 : DataSet - Updata, ModelFunc(add Validation function & add early stopping)
 
+- 2025.04.30 : metric class, parameter searching, save exp result
+
 #### issues
 
     (1) data file list를 validation dataset을 생성하기 위해서 다시 읽어 들이는 비효율 제거
@@ -33,6 +35,11 @@
         - alternative 2 : DataSet class 에서 data file loading process를 분리하여 해결.
 
     (3) 평가를 위한 matrix class 및 결과 저장 방식
+        - monitorring을 위한 tensorboard or MLflow 등
+        - hyper paramter 최적화를 위한 gride-search 등
+        - 
+
+###
 
 ---
 

@@ -9,23 +9,10 @@ import torch.nn as nn
 # from torch.nn.functional import cross_entropy, nll_loss
 import torch.nn.functional as F
 from torch import optim
-
-
 from model.models import test_model
-from dataprovider import DataProvider
-
+from Project_IoT_Attack.bak.dataProvider_v1 import data_provider
 from torchsummary import summary
-from torchinfo import summary
 
-# train-log
-from torch.utils.tensorboard import SummaryWriter
-import mlflow
-
-# metrics
-from torchmetrics import Accuracy, Precision, Recall, F1Score, ConfusionMatrix
-from sklearn.metrics import confusion_matrix, classification_report
-
-import os
 
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, delta=0, save=False):
@@ -64,8 +51,7 @@ class EarlyStopping:
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'loss': train_loss,
-                    }, os.path.join(path, f'{save_name}.pth'))
-        # torch.save(model.state_dict(), path + '\\' + f'{save_name}.pth')
+                    }, path + '/' + f'{save_name}.pth')
         
 
         self.val_loss_min = val_loss
@@ -79,14 +65,6 @@ class ModelFunction:
         self.save = save
         self.savePath = savePath
         self.load_model = load_model
-        self.DataProvider = DataProvider()
-        self.accuracy = Accuracy()
-        self.precision = Precision()
-        self.recall = Recall()
-        self.f1_score = F1Score()
-
-        log_dir = './log_dir' # 임시
-        self.writer = SummaryWriter(log_dir=log_dir) 
         
     def _build_model(self, dropout_ratio=0.5):
         model_dict = {
@@ -101,11 +79,13 @@ class ModelFunction:
         return device
     
     def find_latest_save_checkpoint(self, save_path):
+        # 해당 디렉토리 내의 모든 파일 목록 가져오기
         save_files = os.listdir(save_path)
+
         if not save_files:
             print("No files found in the directory.")
             return None
-        file_times = [(file, os.path.getmtime(os.path.join(save_path, file))) for file in save_files]
+        file_times = [(file, os.path.getmtime(file)) for file in save_files]
         sorted_files = sorted(file_times, key=lambda item: item[1], reverse=True)
         return sorted_files[0][0]
 
@@ -118,12 +98,8 @@ class ModelFunction:
         print("\n {:{}^50}".format(self.model_name,'='))
         summary(self.model, (45,), batch_size)
 
-        train_data, train_loader = self.DataProvider.getTrainLoader()
-        scaler = self.DataProvider.getScaler()
-        oneHot = self.DataProvider.getOneHot()
-        val_data, val_loader = self.DataProvider.getValLoader()
-
-        # self.writer.add_graph(self.model, train_data.data)
+        train_data, train_loader, scaler, oneHot =  data_provider(flag='train', batch_size=batch_size)
+        val_data, val_loader, _, _ =  data_provider(flag='val', batch_size=batch_size)
         
         # set save path locate at project subpath
         if self.save:
@@ -140,7 +116,6 @@ class ModelFunction:
                                 weight_decay=weight_decay
                                 )
         criterion = nn.CrossEntropyLoss()
-        # criterion = nn.NLLLoss()
         early_stopping = EarlyStopping(
                                        patience=patience, 
                                        verbose=True, 
@@ -157,8 +132,7 @@ class ModelFunction:
         # load model
         if self.load_model:
             find_latest_ckp = self.find_latest_save_checkpoint(path)
-            checkpoint = torch.load(os.path.join(path, find_latest_ckp), weights_only=False)
-            # checkpoint = torch.load(self.savePath + '/' + find_latest_ckp, weights_only=True)
+            checkpoint = torch.load(self.savePath + '/' + find_latest_ckp, weights_only=True)
             self.model.load_state_dict(checkpoint['model_state_dict'])
             model_optim.load_state_dict(checkpoint['optimizer_state_dict'])
             epoch = checkpoint['epoch']
@@ -191,15 +165,6 @@ class ModelFunction:
                 model_optim.step()
 
                 if (i + 1) % 1000 == 0:
-                    loss, current = loss.item(), 
-                    mlflow.log_metric("loss", f"{loss:3f}", step=(len(batch_x) // 1000))
-                    mlflow.log_metric("accuracy", f"{self.accuracy:3f}", step=(len(batch_x) // 1000))
-                    print(
-                        f"loss: {loss:3f} accuracy: {self.accuracy:3f} [{current} / {len(train_loader)}]"
-                    )
-
-                    mlflow.log_metric("train_loss", loss.item())
-                    mlflow.log_metric("accruocy",)
                     print("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item()))
                     speed = (time.time() - time_now) / iter_count
                     left_time = speed * ((epochs - epoch) * train_steps - i)
@@ -209,27 +174,23 @@ class ModelFunction:
 
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
             train_loss = np.average(train_loss)
-            self.writer.add_scalar('Loss/train', train_loss, epoch)
             print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} \n".format(epoch + 1, train_steps, train_loss))
 
             scheduler.step()
 
-            val_loss = self.vali(val_loader, epoch=epoch)
-            now = datetime.now().strftime('%Y-%m-%d') #_%H:%M:%S')
-            self.save_name = self.model_name + str(now)
-            early_stopping(val_loss, self.model, path, self.save_name, epoch, model_optim, train_loss)
+            val_loss = self.vali(val_loader)
+            now = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+            save_name = self.model_name + str(now)
+            early_stopping(val_loss, self.model, path, save_name, epoch, model_optim, train_loss)
             if early_stopping.early_stop:
                 print("\n{:^50}\n".format("Early Stopping"))
                 print(f"Model - {self.model_select} - Trainning Stop in Epoch : {epoch + 1} at {now}")
                 break
-
-            # self.writer.flush()
-        # self.writer.close()
         return scaler, oneHot # metrices
         
 
 
-    def vali(self, val_loader, epoch):        
+    def vali(self, val_loader):        
         # data loader locate
         # val_data, val_loader =  data_provider(flag='val', batch_size=batch_size)
 
@@ -246,13 +207,12 @@ class ModelFunction:
                 val_loss.append(loss.item())
         val_loss = np.average(val_loss)
         print("Validation Loss: {0:.7f} \n".format(val_loss))
-        self.writer.add_scalar('Loss/val', val_loss, epoch)
         return val_loss #, metrices
 
     def test(self, learning_lr=0.5, dropout_ratio=0.5, weight_decay=0.3, batch_size=300, load_path=None):
 
         self.model = self._build_model(dropout_ratio).to(self.device)
-        test_data, test_loader =  self.DataProvider.getTestLoader()
+        test_data, test_loader =  data_provider(flag='test', batch_size=batch_size)
         path = load_path
 
         self.model.eval()
@@ -265,7 +225,7 @@ class ModelFunction:
         # load model
         if self.load_model:
             find_latest_ckp = self.find_latest_save_checkpoint(path)
-            checkpoint = torch.load(os.path.join(path,find_latest_ckp), weights_only=False)
+            checkpoint = torch.load(self.savePath + '/' + find_latest_ckp, weights_only=True)
             self.model.load_state_dict(checkpoint['model_state_dict'])
             model_optim.load_state_dict(checkpoint['optimizer_state_dict'])
             epoch = checkpoint['epoch']
@@ -304,8 +264,7 @@ class ModelFunction:
         
 
     def predict(self, batch_size):
-        pred_Data, pred_loader = self.DataProvider.getPredLoader()
-        # pred_data, pred_loader =  data_provider(flag='pred', batch_size=batch_size)
+        pred_data, pred_loader =  data_provider(flag='pred', batch_size=batch_size)
         self.model.eval()
         with torch.no_grad():
             pred = torch.tensor([])

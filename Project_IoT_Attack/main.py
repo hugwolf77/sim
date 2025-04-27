@@ -3,23 +3,22 @@ import torch.nn.functional as F
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.preprocessing import OneHotEncoder
 
-# from modelFunc import ModelFunction
-from modelFunc_v2 import ModelFunction
+from modelFunc import ModelFunction
 import torch
 from config import train_setting, data_setting
 
 # from dataprovider_v2 import DataProvider
 
 process  = ModelFunction(train_setting["model"], save=train_setting['save'], level= data_setting['level'], savePath=train_setting['save_path'], load_model=train_setting['model_load'])
-# scaler, oneHot = process.train(
-#                 train_setting['epochs'], 
-#                 train_setting['learning_rate'], 
-#                 train_setting['dropout_ratio'],
-#                 train_setting['weight_decay'],
-#                 data_setting['batch_size'],
-#                 train_setting['patience'],
+scaler, oneHot = process.train(
+                train_setting['epochs'], 
+                train_setting['learning_rate'], 
+                train_setting['dropout_ratio'],
+                train_setting['weight_decay'],
+                data_setting['batch_size'],
+                train_setting['patience'],
                 
-#     )
+    )
 
 test_predict, test_label, test_loss = process.test(
                                                     train_setting['learning_rate'],
@@ -29,7 +28,6 @@ test_predict, test_label, test_loss = process.test(
                                                     train_setting['load_path']
 
                                         )
-
 
 
 def likelihood_to_one_hot(likelihood_array):

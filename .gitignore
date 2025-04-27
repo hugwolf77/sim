@@ -16,3 +16,5 @@ log_dir/
 save_model/
 
 *.ipynb
+
+.env
