@@ -1,8 +1,10 @@
 
-
 /DLnote
 /MLnote
 /Orange
+/UI
+/SVU_SCT_FIN
+/MCP
 
 __pycache__/
 
@@ -10,6 +12,9 @@ DLnote/
 MLnote/
 Orange/
 SHAP/
+UI/
+SVU_SCT_FIN/
+MCP/
 
 testFile/
 log_dir/

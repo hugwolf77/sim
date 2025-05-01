@@ -36,6 +36,8 @@ class Read_DataList:
         self.oneHot = OneHotEncoder(sparse_output=False)
         self.scale = scale
         self.add_test = add_test
+        self.colnames:list[str] = []
+        
         print(f"\n - [ Start Read Data-List And Load Data-files ] - \n")
         if self.add_test :
             self.train_data, self.train_label, self.val_Data, self.val_label, self.test_data, self.test_label = self.__read_data__()
@@ -49,6 +51,7 @@ class Read_DataList:
                   \t train data : {self.train_data.shape}, train label : {self.train_label.shape}\n \
                   \t val data : {self.val_Data.shape}, val label : {self.val_label.shape}")
         
+
     def __read_data__(self):
 
         train_path = os.path.join(self.filePath, self.setPath["data type"]["train"])
@@ -56,7 +59,8 @@ class Read_DataList:
 
         # train data file stack & labeling  
         df_train = self.__label_class__(train_path,train_fileList)
-        # ㅋㅋ; gemini 추천처리 (왜 try except 가 아니지?;;; 경로가 잘못된 경우도 있잖아??)
+        self.colnames:list[str] = df_train.columns.values.tolist()
+
         if df_train.empty:
              raise ValueError("\nNo training data loaded. Check the path and file contents.")
 
@@ -85,7 +89,6 @@ class Read_DataList:
             df_test_label = self.oneHot.transform(df_test[[self.class_level]])
             test_data = df_test.drop(self.class_level, axis=1)
             test_label = df_test_label
-
 
             # data scaling
             if self.scale:

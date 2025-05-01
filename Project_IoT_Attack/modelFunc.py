@@ -15,14 +15,14 @@ from model.models import test_model
 from dataprovider import DataProvider
 
 from torchsummary import summary
-from torchinfo import summary
+# from torchinfo import summary
 
 # train-log
 from torch.utils.tensorboard import SummaryWriter
-import mlflow
+# import mlflow
 
 # metrics
-from torchmetrics import Accuracy, Precision, Recall, F1Score, ConfusionMatrix
+# from torchmetrics import Accuracy, Precision, Recall, F1Score, ConfusionMatrix
 from sklearn.metrics import confusion_matrix, classification_report
 
 import os
@@ -72,18 +72,19 @@ class EarlyStopping:
 
 
 class ModelFunction:
-    def __init__(self,  model_select, level=1, save=False, savePath=None, load_model = True):
+    def __init__(self,  model_select, level=1, save=False, savePath=None, load_model = True, load_path=None):
         self.level = level
         self.model_select = model_select
         self.device = self.set_device()
         self.save = save
         self.savePath = savePath
         self.load_model = load_model
+        self.load_path = load_path
         self.DataProvider = DataProvider()
-        self.accuracy = Accuracy()
-        self.precision = Precision()
-        self.recall = Recall()
-        self.f1_score = F1Score()
+        # self.accuracy = Accuracy()
+        # self.precision = Precision()
+        # self.recall = Recall()
+        # self.f1_score = F1Score()
 
         log_dir = './log_dir' # 임시
         self.writer = SummaryWriter(log_dir=log_dir) 
@@ -156,9 +157,9 @@ class ModelFunction:
                                             ) 
         # load model
         if self.load_model:
-            find_latest_ckp = self.find_latest_save_checkpoint(path)
-            checkpoint = torch.load(os.path.join(path, find_latest_ckp), weights_only=False)
-            # checkpoint = torch.load(self.savePath + '/' + find_latest_ckp, weights_only=True)
+            find_latest_ckp = self.find_latest_save_checkpoint(self.load_path)
+            print(f"find_latest_ckp : {find_latest_ckp}, path : {self.load_path}")
+            checkpoint = torch.load(os.path.join(self.load_path, find_latest_ckp), weights_only=False)
             self.model.load_state_dict(checkpoint['model_state_dict'])
             model_optim.load_state_dict(checkpoint['optimizer_state_dict'])
             epoch = checkpoint['epoch']
@@ -191,15 +192,15 @@ class ModelFunction:
                 model_optim.step()
 
                 if (i + 1) % 1000 == 0:
-                    loss, current = loss.item(), 
-                    mlflow.log_metric("loss", f"{loss:3f}", step=(len(batch_x) // 1000))
-                    mlflow.log_metric("accuracy", f"{self.accuracy:3f}", step=(len(batch_x) // 1000))
-                    print(
-                        f"loss: {loss:3f} accuracy: {self.accuracy:3f} [{current} / {len(train_loader)}]"
-                    )
+                    # loss, current = loss.item() 
+                    # mlflow.log_metric("loss", f"{loss:3f}", step=(len(batch_x) // 1000))
+                    # mlflow.log_metric("accuracy", f"{self.accuracy:3f}", step=(len(batch_x) // 1000))
+                    # print(
+                    #     f"loss: {loss:3f} accuracy: {self.accuracy:3f} [{current} / {len(train_loader)}]"
+                    # )
+                    # mlflow.log_metric("train_loss", loss.item())
+                    # mlflow.log_metric("accruocy",)
 
-                    mlflow.log_metric("train_loss", loss.item())
-                    mlflow.log_metric("accruocy",)
                     print("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item()))
                     speed = (time.time() - time_now) / iter_count
                     left_time = speed * ((epochs - epoch) * train_steps - i)
@@ -230,8 +231,6 @@ class ModelFunction:
 
 
     def vali(self, val_loader, epoch):        
-        # data loader locate
-        # val_data, val_loader =  data_provider(flag='val', batch_size=batch_size)
 
         self.model.eval()
         criterion = nn.CrossEntropyLoss()

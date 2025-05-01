@@ -15,7 +15,7 @@ data_setting = {
     
     "scale"    : True,
     "val_size" : 0.2,
-    "num_workers" : 3,
+    "num_workers" : 5,
     "drop_last" : False,
     "shuffle_flag" : True,
 }
@@ -26,7 +26,7 @@ train_setting = {
     "model_load": True,
     "model_path": "",
 
-    "epochs" : 20,
+    "epochs" : 1,
     "dropout_ratio" : 0.3,
     "learning_rate" : 0.1,
     "weight_decay"  : 0.2,
