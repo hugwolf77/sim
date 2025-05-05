@@ -8,6 +8,8 @@
 
 __pycache__/
 
+
+# proejct Gropu
 DLnote/
 MLnote/
 Orange/
@@ -15,11 +17,14 @@ SHAP/
 UI/
 SVU_SCT_FIN/
 MCP/
+ChatBot/
 
+# sub file dir
 testFile/
 log_dir/
 save_model/
 
 *.ipynb
+*.csv
 
 .env
