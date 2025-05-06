@@ -1,6 +1,5 @@
 import dataclasses
 
-
 class args:
     pass
 
@@ -15,9 +14,10 @@ data_setting = {
     
     "scale"    : True,
     "val_size" : 0.2,
-    "num_workers" : 5,
+    "num_workers" : 3,
     "drop_last" : False,
     "shuffle_flag" : True,
+    "balanced_flag" : "RandomOverSampler", #"RandomUnderSampler",
 }
 
 train_setting = {
@@ -26,9 +26,9 @@ train_setting = {
     "model_load": True,
     "model_path": "",
 
-    "epochs" : 1,
+    "epochs" : 30,
     "dropout_ratio" : 0.3,
-    "learning_rate" : 0.1,
+    "learning_rate" : 0.03,
     "weight_decay"  : 0.2,
     "early_stopping" : True,
     "patience" : 10,
@@ -40,7 +40,7 @@ train_setting = {
 
     # load
     "load_model" : True,
-    "load_path" : '/home/augustine77/mylab/sim/sim/Project_IoT_Attack/save_model/test_model/2025-04-23',
+    "load_path" : '/home/augustine77/mylab/sim/sim/Project_IoT_Attack/save_model/test_model/2025-05-06',
 }
 
 predict_setting = {

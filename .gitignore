@@ -24,6 +24,8 @@ ChatBot/
 testFile/
 log_dir/
 save_model/
+mlruns/
+mlartifacts/
 
 *.ipynb
 *.csv

@@ -2,6 +2,7 @@ from dataFactory import Read_DataList, CIC_Dataset, CIC_Infer_Dataset, CIC_Predi
 from torch.utils.data import DataLoader
 from config import data_setting, predict_setting
 
+import imblearn as imbl
 
 class DataProvider:
     def __init__(self,*args, add_test = True, **kargs):
@@ -17,7 +18,9 @@ class DataProvider:
         self.num_workers = data_setting["num_workers"]
         self.batch_size = data_setting["batch_size"]
         self.drop_last = data_setting["drop_last"]
-        self.shuffle_flag = data_setting["shuffle_flag"]       
+        self.shuffle_flag = data_setting["shuffle_flag"]
+        self.balanced_flag = data_setting["balanced_flag"]
+        
         self.add_test = add_test
 
         self.dataloader = Read_DataList(self.filePath, self.val_size, self.level, self.scale, self.add_test)
@@ -27,6 +30,23 @@ class DataProvider:
         self.testData, self.testLoader = self.setLoader('test')
         # self.predData, self.predLoader = self.setLoader('pred')
 
+    def dataBalancing(self, dataset):
+        data, label = dataset[0], dataset[1]
+        # data balancing
+        if self.balanced_flag:
+            print(f"balancing Data Ratio by method : {self.balanced_flag}")
+            if self.balanced_flag == 'SMOTE':
+                self.sampler = imbl.over_sampling.SMOTE()
+            elif self.balanced_flag == 'SMOTETomek':
+                self.sampler = imbl.combine.SMOTETomek()
+            elif self.balanced_flag == 'ADASYN':
+                self.sampler = imbl.over_sampling.ADASYN()
+            elif self.balanced_flag == 'RandomOverSampler':
+                self.sampler = imbl.over_sampling.RandomOverSampler()
+            elif self.balanced_flag == 'RandomUnderSampler':
+                self.sampler = imbl.under_sampling.RandomUnderSampler()
+            data, label = self.sampler.fit_resample(data, label)
+        return data, label
 
     def setLoader(self, flag):
         if flag == 'test':
@@ -40,11 +60,11 @@ class DataProvider:
         elif flag == 'val':
             shuffle_flag = True
             batch_size = self.batch_size
-            Data = CIC_Dataset(self.dataloader.get_val_data())
+            Data = CIC_Dataset(self.dataBalancing(self.dataloader.get_val_data()))
         else:
             shuffle_flag = self.shuffle_flag
             batch_size = self.batch_size
-            Data = CIC_Dataset(self.dataloader.get_train_data())
+            Data = CIC_Dataset(self.dataBalancing(self.dataloader.get_train_data()))
 
         print(f"data_provider : Calling dataset - {flag},  Dataset size - {len(Data)}")
         data_loader = DataLoader(

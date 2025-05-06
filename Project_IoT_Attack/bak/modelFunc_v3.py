@@ -14,15 +14,12 @@ from torch import optim
 from model.models import test_model
 from dataprovider import DataProvider
 
-from torchsummary import summary as summary
-from torchinfo import summary as tinfo
+from torchsummary import summary
+# from torchinfo import summary
 
 # train-log
 from torch.utils.tensorboard import SummaryWriter
 import mlflow
-mlflow.set_tracking_uri(uri="http://127.0.0.1:8080")
-# Create a new MLflow Experiment
-mlflow.set_experiment("MLflow test_model")
 
 # metrics
 from torchmetrics import Accuracy, Precision, Recall, F1Score, ConfusionMatrix
@@ -41,6 +38,7 @@ class EarlyStopping:
         self.delta = delta
         self.save = save
                 
+
     def __call__(self, val_loss, model, path, save_name, epoch, optimizer, loss):
         score = -val_loss
         if self.best_score is None:
@@ -169,92 +167,67 @@ class ModelFunction:
             loss = checkpoint['loss']
             print(f"model's lastest_checkpoint is on the model")
 
+        for epoch in range(epochs):
+            print("{:{}^50} ".format( 'Epoch_('+str(epoch+1)+')_Start', '-'))
+            iter_count = 0
+            train_loss = []
+            self.model.train()
+            epoch_time = time.time()
 
-        # add mlflow monitoring 
-        with mlflow.start_run():
-            params = {
-                "epochs": epochs,
-                "learning_lr": learning_lr,
-                "dropout_ratio": dropout_ratio,
-                "weight_decay": weight_decay,
-                "batch_size": batch_size,
-                "patience": patience,
-                "loss_function":criterion.__class__.__name__,
-                "optimizer":model_optim.__class__.__name__,
-                "scheduler":scheduler.__class__.__name__,
-            }
+            for i, (batch_x, batch_y) in enumerate(train_loader):
+                iter_count += 1
+                model_optim.zero_grad()
+                
+                batch_x = batch_x.float().to(self.device)
+                batch_y = batch_y.float().to(self.device)
 
-            # Log training parameters
-            mlflow.log_params(params)
+                outputs = self.model(batch_x)
+                # print(f"batch_y: {batch_y.shape}")
+                # print(f"outputs: {outputs.shape}")
+                # raise
 
-            # Log model summary
-            with open("model_summary.txt", "w") as f:
-                f.write(str(tinfo(self.model)))
-            mlflow.log_artifact("model_summary.txt")
+                loss = criterion(outputs, batch_y)
+                accuracy = self.accuracy(outputs, batch_y)
+                train_loss.append(loss.item())
 
-            for epoch in range(epochs):
-                print("{:{}^50} ".format( 'Epoch_('+str(epoch+1)+')_Start', '-'))
-                iter_count = 0
-                train_loss = []
-                self.model.train()
-                epoch_time = time.time()
+                loss.backward()
+                model_optim.step()
 
-                for i, (batch_x, batch_y) in enumerate(train_loader):
-                    iter_count += 1
-                    model_optim.zero_grad()
-                    
-                    batch_x = batch_x.float().to(self.device)
-                    batch_y = batch_y.float().to(self.device)
+                if (i + 1) % 1000 == 0:
+                    # loss, current = loss.item() 
+                    mlflow.log_metric("loss", f"{loss:3f}", step=(len(batch_x) // 1000))
+                    mlflow.log_metric("accuracy", f"{accuracy:3f}", step=(len(batch_x) // 1000))
+                    # print(
+                    #     f"loss: {loss:3f} accuracy: {self.accuracy:3f} [{current} / {len(train_loader)}]"
+                    # )
+                    # mlflow.log_metric("train_loss", loss.item())
+                    # mlflow.log_metric("accruocy",)
 
-                    outputs = self.model(batch_x)
-                    # print(f"batch_y: {batch_y.shape}")
-                    # print(f"outputs: {outputs.shape}")
-                    # raise
+                    print("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item()))
+                    speed = (time.time() - time_now) / iter_count
+                    left_time = speed * ((epochs - epoch) * train_steps - i)
+                    print('\tspeed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
+                    iter_count = 0
+                    time_now = time.time()
+                    self.writer.add_scalar('Loss/train', np.average(train_loss), i + 1)
 
-                    loss = criterion(outputs, batch_y)
-                    accuracy = self.accuracy(outputs, batch_y)
-                    train_loss.append(loss.item())
+            print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
+            train_loss = np.average(train_loss)
+            print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} \n".format(epoch + 1, train_steps, train_loss))
 
-                    loss.backward()
-                    model_optim.step()
+            scheduler.step()
 
-                    if (i + 1) % 1000 == 0:
-                        # loss, current = loss.item() 
-                        mlflow.log_metric("loss", f"{loss:3f}", step=(len(batch_x) // 1000))
-                        mlflow.log_metric("accuracy", f"{accuracy:3f}", step=(len(batch_x) // 1000))
-                        # print(
-                        #     f"loss: {loss:3f} accuracy: {self.accuracy:3f} [{current} / {len(train_loader)}]"
-                        # )
-                        # mlflow.log_metric("train_loss", loss.item())
-                        # mlflow.log_metric("accruocy",)
+            val_loss = self.vali(val_loader, epoch=epoch)
+            now = datetime.now().strftime('%Y-%m-%d') #_%H:%M:%S')
+            self.save_name = self.model_name + str(now)
+            early_stopping(val_loss, self.model, path, self.save_name, epoch, model_optim, train_loss)
+            if early_stopping.early_stop:
+                print("\n{:^50}\n".format("Early Stopping"))
+                print(f"Model - {self.model_select} - Trainning Stop in Epoch : {epoch + 1} at {now}")
+                break
 
-                        print("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item()))
-                        speed = (time.time() - time_now) / iter_count
-                        left_time = speed * ((epochs - epoch) * train_steps - i)
-                        print('\tspeed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
-                        iter_count = 0
-                        time_now = time.time()
-                        self.writer.add_scalar('Loss/train', np.average(train_loss), i + 1)
-
-                print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
-                train_loss = np.average(train_loss)
-                print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} \n".format(epoch + 1, train_steps, train_loss))
-
-                scheduler.step()
-
-                val_loss = self.vali(val_loader, epoch=epoch)
-                now = datetime.now().strftime('%Y-%m-%d') #_%H:%M:%S')
-                self.save_name = self.model_name + str(now)
-                early_stopping(val_loss, self.model, path, self.save_name, epoch, model_optim, train_loss)
-                if early_stopping.early_stop:
-                    print("\n{:^50}\n".format("Early Stopping"))
-                    print(f"Model - {self.model_select} - Trainning Stop in Epoch : {epoch + 1} at {now}")
-                    break
-
-                self.writer.flush()
-            self.writer.close()
-            mlflow.pytorch.log_model(self.model, "model")
-
+            self.writer.flush()
+        self.writer.close()
         return scaler, oneHot # metrices
 
     def vali(self, val_loader, epoch):        
