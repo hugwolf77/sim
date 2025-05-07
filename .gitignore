@@ -1,6 +1,6 @@
 
-/DLnote
-/MLnote
+# /DLnote
+# /MLnote
 /Orange
 /UI
 /SVU_SCT_FIN
@@ -10,8 +10,8 @@ __pycache__/
 
 
 # proejct Gropu
-DLnote/
-MLnote/
+# DLnote/
+# MLnote/
 Orange/
 SHAP/
 UI/
@@ -27,7 +27,7 @@ save_model/
 mlruns/
 mlartifacts/
 
-*.ipynb
-*.csv
+# *.ipynb
+# *.csv
 
 .env
