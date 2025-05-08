@@ -10,7 +10,7 @@ data_setting = {
 
     # set dataset level
     "level"    : 1,
-    "batch_size" : 150,
+    "batch_size" : 300,
     
     "scale"    : True,
     "val_size" : 0.2,
@@ -27,9 +27,9 @@ train_setting = {
     "model_path": "",
 
     "epochs" : 30,
-    "dropout_ratio" : 0.3,
+    "dropout_ratio" : 0.5,
     "learning_rate" : 0.03,
-    "weight_decay"  : 0.2,
+    "weight_decay"  : 0.1,
     "early_stopping" : True,
     "patience" : 10,
 
