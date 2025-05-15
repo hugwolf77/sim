@@ -1,5 +1,6 @@
 import os
 import time
+
 from datetime import datetime
 import numpy as np
 
@@ -14,13 +15,16 @@ from torch import optim
 from model.models import test_model
 from dataprovider import DataProvider
 
-from torchsummary import summary as summary
+# from torchsummary import summary as summary
 from torchinfo import summary as tinfo
 
 # train-log
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
+
 import mlflow
-mlflow.set_tracking_uri(uri="http://127.0.0.1:8080")
+print(f"{'<--'*30:<}")
+# mlflow.set_tracking_uri(uri="http://127.0.0.1:8080")
+# raise
 # Create a new MLflow Experiment
 mlflow.set_experiment("MLflow test_model")
 
@@ -89,8 +93,8 @@ class ModelFunction:
         # self.recall = Recall()
         # self.f1_score = F1Score()
 
-        log_dir = './log_dir' # 임시
-        self.writer = SummaryWriter(log_dir=log_dir) 
+        # log_dir = './log_dir' # 임시
+        # self.writer = SummaryWriter(log_dir=log_dir) 
         
     def _build_model(self, dropout_ratio=0.5):
         model_dict = {
@@ -120,7 +124,7 @@ class ModelFunction:
 
         self.model_name = self.model_select + f"_level_{self.level}_lr({learning_lr})_dropout({dropout_ratio})_wdecay({weight_decay})_batch({batch_size})"
         print("\n {:{}^50}".format(self.model_name,'='))
-        summary(self.model, (45,), batch_size)
+        # summary(self.model, (45,), batch_size)
 
         train_data, train_loader = self.DataProvider.getTrainLoader()
         scaler = self.DataProvider.getScaler()
@@ -168,7 +172,6 @@ class ModelFunction:
             epoch = checkpoint['epoch']
             loss = checkpoint['loss']
             print(f"model's lastest_checkpoint is on the model")
-
 
         # add mlflow monitoring 
         with mlflow.start_run():
@@ -234,7 +237,7 @@ class ModelFunction:
                         print('\tspeed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
                         iter_count = 0
                         time_now = time.time()
-                        self.writer.add_scalar('Loss/train', np.average(train_loss), i + 1)
+                        # self.writer.add_scalar('Loss/train', np.average(train_loss), i + 1)
 
                 print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
                 train_loss = np.average(train_loss)
@@ -251,8 +254,8 @@ class ModelFunction:
                     print(f"Model - {self.model_select} - Trainning Stop in Epoch : {epoch + 1} at {now}")
                     break
 
-                self.writer.flush()
-            self.writer.close()
+            #     self.writer.flush()
+            # self.writer.close()
             mlflow.pytorch.log_model(self.model, "model")
 
         return scaler, oneHot # metrices
@@ -272,7 +275,7 @@ class ModelFunction:
                 val_loss.append(loss.item())
         val_loss = np.average(val_loss)
         print("Validation Loss: {0:.7f} \n".format(val_loss))
-        self.writer.add_scalar('Loss/val', val_loss, epoch)
+        # self.writer.add_scalar('Loss/val', val_loss, epoch)
         return val_loss #, metrices
 
     def test(self, learning_lr=0.5, dropout_ratio=0.5, weight_decay=0.3, batch_size=300, load_path=None):
