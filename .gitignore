@@ -36,6 +36,7 @@ mlartifacts/
 MNIST/raw/
 results/
 Wifi_and_MQTT/
+CIC_2024/
 
 
 *.gz
