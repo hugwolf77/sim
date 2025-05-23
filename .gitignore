@@ -1,0 +1,49 @@
+
+# /02_DLnote
+# /01_MLnote
+/Orange
+/UI
+/SVU_SCT_FIN
+/MCP
+
+__pycache__/
+
+
+# proejct Gropu
+# DLnote/
+# MLnote/
+SHAP/
+UI/
+04_XDL_industrial_AI/
+05_SVU_SCT_FIN/
+06_Orange/
+MCP/
+ChatBot/
+CUDA/
+IoT_Network/
+Vision/
+attacks/
+bak/
+data/
+balanced/
+
+# sub file dir
+testFile/
+log_dir/
+save_model/
+mlruns/
+mlartifacts/
+MNIST/raw/
+results/
+Wifi_and_MQTT/
+
+
+*.gz
+t10k-*
+train-*
+
+
+# *.ipynb
+# *.csv
+
+.env
