@@ -425,6 +425,21 @@ numpy = "*"
 doc = ["gitpython", "numpydoc", "sphinx"]
 
 [[package]]
+name = "bs4"
+version = "0.0.2"
+description = "Dummy package for Beautiful Soup (beautifulsoup4)"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "bs4-0.0.2-py2.py3-none-any.whl", hash = "sha256:abf8742c0805ef7f662dce4b51cca104cffe52b835238afc169142ab9b3fbccc"},
+    {file = "bs4-0.0.2.tar.gz", hash = "sha256:a48685c58f50fe127722417bae83fe6badf500d54b55f7e39ffe43b798653925"},
+]
+
+[package.dependencies]
+beautifulsoup4 = "*"
+
+[[package]]
 name = "cachetools"
 version = "5.5.2"
 description = "Extensible memoizing collections and decorators"
@@ -1790,6 +1805,28 @@ files = [
 
 [package.dependencies]
 numpy = ">=1.19.3"
+
+[[package]]
+name = "html5lib"
+version = "1.1"
+description = "HTML parser based on the WHATWG HTML specification"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
+groups = ["main"]
+files = [
+    {file = "html5lib-1.1-py2.py3-none-any.whl", hash = "sha256:0d78f8fde1c230e99fe37986a60526d7049ed4bf8a9fadbad5f00e22e58e041d"},
+    {file = "html5lib-1.1.tar.gz", hash = "sha256:b2e5b40261e20f354d198eae92afc10d750afb487ed5e50f9c4eaf07c184146f"},
+]
+
+[package.dependencies]
+six = ">=1.9"
+webencodings = "*"
+
+[package.extras]
+all = ["chardet (>=2.2)", "genshi", "lxml ; platform_python_implementation == \"CPython\""]
+chardet = ["chardet (>=2.2)"]
+genshi = ["genshi"]
+lxml = ["lxml ; platform_python_implementation == \"CPython\""]
 
 [[package]]
 name = "httpcore"
@@ -7771,4 +7808,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "3.11.11"
-content-hash = "89c58513fe13feb057254247c7fc4f04f54a62054b4094e0216fb3416c0fbf1d"
+content-hash = "af99d4e8a8c9260700f265780ec392b808fa755e7bb8299b8a15306c3e065b4f"
